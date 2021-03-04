@@ -21,6 +21,10 @@
     if ([UIDevice.currentDevice.systemVersion compare:@"8.0" options:NSNumericSearch] < 0) {
         return nil;
     }
+    
+    if (@available(iOS 13.0, *)) { // Xcode 11
+       return nil;
+    }
 
     return [super defaultTestSuite];
 }
@@ -42,6 +46,7 @@
     // Call acknowledgeSystemAlert 2x without checking the return value (as the alerts might not be there).
     // Finally check that the final attempt is indeed false and no alerts remain on screen.
 	
+    [tester acknowledgeSystemAlert];
     [tester acknowledgeSystemAlert];
     [tester acknowledgeSystemAlert];
     XCTAssertFalse([tester acknowledgeSystemAlert]);

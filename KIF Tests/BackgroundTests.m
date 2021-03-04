@@ -31,9 +31,13 @@
 
 - (void)afterEach {
     [tester tapViewWithAccessibilityLabel:@"Test Suite" traits:UIAccessibilityTraitButton];
+    [tester waitForViewWithAccessibilityLabel:@"Test Suite" traits:UIAccessibilityTraitHeader];
 }
 
 - (void)testBackgroundApp {
+    if (@available(iOS 14.0, *)) { // Xcode 12, UIAutomation framework not available
+        return;
+    }
     [tester waitForViewWithAccessibilityLabel:@"Start"];
     [system deactivateAppForDuration:5];
     [tester waitForViewWithAccessibilityLabel:@"Back"];
