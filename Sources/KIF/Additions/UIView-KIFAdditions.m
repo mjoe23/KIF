@@ -299,7 +299,6 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
             } else {
                 [tableView scrollRectToVisible:initialPosition animated:NO];
             }
-            CFRunLoopRunInMode(UIApplicationCurrentRunMode, delay, false);
         } else if ([self isKindOfClass:[UICollectionView class]]) {
             UICollectionView *collectionView = (UICollectionView *)self;
             
