@@ -323,6 +323,13 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
         KIFTestWaitCondition(view.isUserInteractionActuallyEnabled, error, @"View is not enabled for interaction: %@", view);
 
         CGPoint tappablePointInElement = [self tappablePointInElement:element andView:view];
+
+        // If the element isn't immediately tappable, try checking if it is contained within scroll views that can be scrolled to make it tappable.
+        if (isnan(tappablePointInElement.x)) {
+            [self _scrollViewToTappablePointIfNeeded:view];
+
+            tappablePointInElement = [self tappablePointInElement:element andView:view];
+        }
         
         // This is mostly redundant of the test in _accessibilityElementWithLabel:
         KIFTestWaitCondition(!isnan(tappablePointInElement.x), error, @"View is not tappable: %@", view);
@@ -406,6 +413,12 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
         KIFTestWaitCondition(view.isUserInteractionActuallyEnabled, error, @"View is not enabled for interaction: %@", view);
 
         CGPoint tappablePointInElement = [self tappablePointInElement:element andView:view];
+        // If the element isn't immediately tappable, try checking if it is contained within scroll views that can be scrolled to make it tappable.
+        if (isnan(tappablePointInElement.x)) {
+            [self _scrollViewToTappablePointIfNeeded:view];
+
+            tappablePointInElement = [self tappablePointInElement:element andView:view];
+        }
         
         // This is mostly redundant of the test in _accessibilityElementWithLabel:
         KIFTestWaitCondition(!isnan(tappablePointInElement.x), error, @"View is not tappable: %@", view);
@@ -733,6 +746,7 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
 - (void)selectDatePickerValue:(NSArray *)datePickerColumnValues fromPicker:(UIDatePicker *)datePicker withSearchOrder:(KIFPickerSearchOrder)searchOrder
 {
     NSDateComponents *dateComponents = [[NSDateComponents alloc] init];
+    dateComponents.timeZone = datePicker.timeZone;
     NSArray *dateOrder = [self.class dateOrderForDatePicker:datePicker];
     
     // Backwards compatibility while migrating away from this deprecated API.
@@ -781,12 +795,14 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
             }
         }
     
-        BOOL isPM = NO;
-        if(datePickerColumnValues.count == 4 && [datePickerColumnValues.lastObject isEqualToString:self.class.__kifDateFormatter.PMSymbol]) {
-            isPM = YES;
+        BOOL shouldOffsetPM = NO;
+        if(datePickerColumnValues.count == 4 &&
+           [datePickerColumnValues.lastObject isEqualToString:self.class.__kifDateFormatter.PMSymbol] &&
+           [datePickerColumnValues[1] integerValue] != 12) { // If the time is 12pm, 12 shouldn't be added to make it 24h format
+            shouldOffsetPM = YES;
         }
         
-        dateComponents.hour = isPM ? [datePickerColumnValues[1] integerValue] + 12 : [datePickerColumnValues[1] integerValue];
+        dateComponents.hour = shouldOffsetPM ? [datePickerColumnValues[1] integerValue] + 12 : [datePickerColumnValues[1] integerValue];
         dateComponents.minute = [datePickerColumnValues[2] integerValue];
         dateComponents.year = currentDateComponents.year;
     }
@@ -1567,6 +1583,13 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
         KIFTestWaitCondition(view.isUserInteractionActuallyEnabled, error, @"View is not enabled for interaction: %@", view);
 
         CGPoint stepperPointToTap = [self tappablePointInElement:element andView:view];
+        
+        // If the element isn't immediately tappable, try checking if it is contained within scroll views that can be scrolled to make it tappable.
+        if (isnan(stepperPointToTap.x)) {
+            [self _scrollViewToTappablePointIfNeeded:view];
+
+            stepperPointToTap = [self tappablePointInElement:element andView:view];
+        }
 
         switch (stepperDirection)
         {
@@ -1577,6 +1600,7 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
                 stepperPointToTap.x -= CGRectGetWidth(view.frame) / 4;
                 break;
         }
+        
 
         // This is mostly redundant of the test in _accessibilityElementWithLabel:
         KIFTestWaitCondition(!isnan(stepperPointToTap.x), error, @"View is not tappable: %@", view);
@@ -1627,6 +1651,21 @@ static BOOL KIFUITestActorAnimationsEnabled = YES;
         case KIFSwipeDirectionDown:
             return CGPointMake(kKIFMinorSwipeDisplacement, UIScreen.mainScreen.majorSwipeDisplacement);
     }
+}
+
+- (void)_scrollViewToTappablePointIfNeeded:(UIView *)view
+{
+    UIView *container = view;
+
+    do {
+        if ([container isKindOfClass:UIScrollView.class]) {
+            UIScrollView *containerScrollView = (UIScrollView *)container;
+            CGRect rect = [view convertRect:view.frame toView:containerScrollView];
+            [containerScrollView scrollRectToVisible:rect animated:NO];
+        }
+
+        container = container.superview;
+    } while (container != nil);
 }
 
 + (BOOL)testActorAnimationsEnabled;
