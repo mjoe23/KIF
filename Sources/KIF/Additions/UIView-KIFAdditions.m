@@ -135,6 +135,47 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
     return [self accessibilityElementMatchingBlock:matchBlock notHidden:YES];
 }
 
+- (BOOL)isPossiblyVisibleInWindow
+{
+    if (self.alpha == 0) {
+        return NO;
+    }
+
+    if ([self isVisibleInWindowFrame]) {
+        return YES;
+    } else {
+        // This is a fix when a view is not hidden but outside of visible area and scrollable content size
+        //
+        // scroll view scrollable content
+        // -------------
+        // |           |
+        // |scrollView |    View is not hidden and it's out of the scollable content
+        // |           |     -----
+        // |           |     |   | <- a subview of the scrollView
+        // |           |     |   |
+        // -------------     -----
+        //
+        // We want to detect that if the view is there but it's out of the scrollable content size
+        // If it's out of the scrollable content size, we consider as not visible
+        //
+        // We are only interested if the parent is a scrollView and NOT collectionView and NOT tableView
+        UIScrollView *scrollView = (UIScrollView *)[self ancestorScrollView];
+        // if scrollView is within a tappable point, that means we can check to see if `self` is viewable within content size
+        //
+        // TODO: We haven't handled if a scrollView is inside another scrollView
+        if (scrollView && scrollView.isTappable) {
+            CGSize scrollViewSize = scrollView.contentSize;
+            BOOL isXVisible = scrollViewSize.width >= self.frame.origin.x;
+            BOOL isYVisible = scrollViewSize.height >= self.frame.origin.y;
+            BOOL isSelfVisible = isXVisible && isYVisible;
+
+            return isSelfVisible;
+        }
+
+        return NO;
+    }
+}
+
 - (UIAccessibilityElement *)accessibilityElementMatchingBlock:(BOOL(^)(UIAccessibilityElement *))matchBlock notHidden:(BOOL)notHidden;
 {
     if (notHidden && self.hidden) {
@@ -321,7 +362,7 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
                     if ([indexPathsForVisibleItems containsObject:indexPath]) {
                         continue;
                     }
-                    
+
                     @autoreleasepool {
                         // Get the cell directly from the dataSource because UICollectionView will only vend visible cells
                         UICollectionViewCell *cell = [collectionView.dataSource collectionView:collectionView cellForItemAtIndexPath:indexPath];
@@ -355,7 +396,7 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
             }
         }
     }
-    
+
     return matchingButOccludedElement;
 }
 
@@ -594,6 +635,27 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
     [self dragPointsAlongPaths:@[path]];
 }
 
+- (void)dragFromEdge:(UIRectEdge)startEdge toEdge:(UIRectEdge)endEdge
+{
+    CGFloat width = self.bounds.size.width;
+    CGFloat height = self.bounds.size.height;
+    CGFloat edgeInset = 0.5;
+    NSDictionary *edgeToPoint = @{
+        @(UIRectEdgeTop): @(CGPointMake(width / 2, edgeInset)),
+        @(UIRectEdgeLeft): @(CGPointMake(edgeInset, height / 2)),
+        @(UIRectEdgeBottom): @(CGPointMake(width / 2, height - edgeInset)),
+        @(UIRectEdgeRight): @(CGPointMake(width - edgeInset, height / 2)),
+    };
+    CGPoint startPoint = [edgeToPoint[@(startEdge)] CGPointValue];
+    CGPoint endPoint = [edgeToPoint[@(endEdge)] CGPointValue];
+    
+    CGPoint screenPoint = [self convertPoint:startPoint toView:self.window];
+    BOOL isFromScreenEdge = (screenPoint.x < 1 || screenPoint.x > self.window.bounds.size.width - 1);
+    
+    NSArray<NSValue *> *path = [self pointsFromStartPoint:startPoint toPoint:endPoint steps:20];
+    [self dragPointsAlongPaths:@[path] isFromEdge:isFromScreenEdge];
+}
+
 - (void)dragAlongPathWithPoints:(CGPoint *)points count:(NSInteger)count;
 {
     // convert point array into NSArray with NSValue
@@ -606,6 +668,10 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
 }
 
 - (void)dragPointsAlongPaths:(NSArray<NSArray<NSValue *> *> *)arrayOfPaths {
+    [self dragPointsAlongPaths:arrayOfPaths isFromEdge:NO];
+}
+
+- (void)dragPointsAlongPaths:(NSArray<NSArray<NSValue *> *> *)arrayOfPaths isFromEdge:(BOOL)isFromEdge {
     // There must be at least one path with at least one point
     if (arrayOfPaths.count == 0 || arrayOfPaths.firstObject.count == 0)
     {
@@ -650,6 +716,7 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
                 point = [self convertPoint:point fromView:self.window];
                 UITouch *touch = [[UITouch alloc] initAtPoint:point inView:self];
                 [touch setPhaseAndUpdateTimestamp:UITouchPhaseBegan];
+                [touch setIsFromEdge:isFromEdge];
                 [touches addObject:touch];
             }
             UIEvent *eventDown = [self eventWithTouches:[NSArray arrayWithArray:touches]];
@@ -1052,12 +1119,31 @@ NS_INLINE BOOL StringsMatchExceptLineBreaks(NSString *expected, NSString *actual
     }
 }
 
--(UIView*)tryGetiOS16KeyboardFallbackViewFromParentView:(UIView*) parentView {
+- (UIView *)tryGetiOS16KeyboardFallbackViewFromParentView:(UIView*) parentView
+{
     if([parentView isKindOfClass:NSClassFromString(@"_UIRemoteKeyboardPlaceholderView")]) {
         UIView* fallbackView = [parentView valueForKey:@"_fallbackView"];
         return fallbackView;
     }
     
+    return nil;
+}
+
+- (nullable UIView *)ancestorScrollView
+{
+    // We don't want collection view and table view because we handle them separately.
+    // This function is only getting a plain scroll view
+    UIView *currentSuperview = self.superview;
+    while (currentSuperview != nil) {
+        if ([currentSuperview isKindOfClass:[UIScrollView class]] &&
+            ![currentSuperview isKindOfClass:[UICollectionView class]] &&
+            ![currentSuperview isKindOfClass:[UITableView class]]) {
+            return currentSuperview;
+        }
+
+        currentSuperview = currentSuperview.superview;
+    }
+
     return nil;
 }
 

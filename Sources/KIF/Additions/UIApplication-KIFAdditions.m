@@ -147,7 +147,9 @@ static const void *KIFRunLoopModesKey = &KIFRunLoopModesKey;
 
 - (void)setAnimationSpeed:(float)animationSpeed
 {
-    self.keyWindow.layer.speed = animationSpeed;
+    for (UIWindow *window in self.windows) {
+        window.layer.speed = animationSpeed;
+    }
 }
 
 #pragma mark - Screenshotting
@@ -176,13 +178,21 @@ static const void *KIFRunLoopModesKey = &KIFRunLoopModesKey;
         }
         return NO;
     }
-    
+
+    UIWindow *keyboardWindow = [self keyboardWindow];
+
     UIGraphicsBeginImageContextWithOptions([[windows objectAtIndex:0] bounds].size, YES, 0);
     for (UIWindow *window in windows) {
 		//avoid https://github.com/kif-framework/KIF/issues/679
 		if (window.hidden) {
 			continue;
 		}
+
+        if (@available(iOS 17.0, *)) {
+            if (window == keyboardWindow) {
+                continue;
+            }
+        }
 
         if ([window respondsToSelector:@selector(drawViewHierarchyInRect:afterScreenUpdates:)]) {
             [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:YES];

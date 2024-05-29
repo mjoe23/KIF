@@ -197,8 +197,8 @@ NSString *const inputFieldTestString = @"Testing";
         KIFTestWaitCondition(found.view, error, @"Cannot find view containing accessibility element \"%@\"", found.element);
         
         // Hidden views count as absent
-        KIFTestWaitCondition([found.view isHidden] || [found.view superview] == nil, error, @"Accessibility element \"%@\" is visible and not hidden.", found);
-        
+        KIFTestWaitCondition([found.view isHidden] || [found.view superview] == nil || ![found.view isPossiblyVisibleInWindow], error, @"Accessibility element \"%@\" is visible and not hidden.", found);
+
         return KIFTestStepResultSuccess;
     }];
 }
@@ -378,6 +378,11 @@ NSString *const inputFieldTestString = @"Testing";
         KIFUIObject *found = [self _predicateSearchWithRequiresMatch:YES mustBeTappable:NO];
         [self.actor swipeAccessibilityElement:found.element inView:found.view inDirection:direction];
     }
+}
+
+- (void)swipeFromEdge:(UIRectEdge)edge
+{
+    [self.actor swipeFromEdge:edge];
 }
 
 #pragma mark - Scroll/Table/CollectionView Actions

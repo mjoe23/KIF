@@ -53,6 +53,7 @@ typedef CGPoint KIFDisplacement;
 - (void)dragFromPoint:(CGPoint)startPoint toPoint:(CGPoint)endPoint;
 - (void)dragFromPoint:(CGPoint)startPoint toPoint:(CGPoint)endPoint steps:(NSUInteger)stepCount;
 - (void)dragFromPoint:(CGPoint)startPoint displacement:(KIFDisplacement)displacement steps:(NSUInteger)stepCount;
+- (void)dragFromEdge:(UIRectEdge)startEdge toEdge:(UIRectEdge)endEdge;
 - (void)dragAlongPathWithPoints:(CGPoint *)points count:(NSInteger)count;
 - (void)twoFingerPanFromPoint:(CGPoint)startPoint toPoint:(CGPoint)toPoint steps:(NSUInteger)stepCount;
 - (void)pinchAtPoint:(CGPoint)centerPoint distance:(CGFloat)distance steps:(NSUInteger)stepCount;
@@ -101,6 +102,12 @@ typedef CGPoint KIFDisplacement;
  @abstract Evaluates if the view has some portion of its frame intersect with its ancestor views clip it from being visible on the screen.
  */
 - (BOOL)isVisibleInWindowFrame;
+
+/*!
+ @abstract Evaluates if the view is within visible or scrollable range.
+ @discussion A view can be offscreen completely so we consider this as NOT visible in window.
+ */
+- (BOOL)isPossiblyVisibleInWindow;
 
 /*!
  @method performBlockOnDescendentViews:
